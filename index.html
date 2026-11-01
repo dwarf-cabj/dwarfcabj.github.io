@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamSport Live | Plataforma Deportiva</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        live: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar styling for dark UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        /* Canvas player styling */
+        .player-aspect {
+            aspect-ratio: 16 / 9;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased overflow-hidden bg-slate-950 text-slate-100 selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="h-16 bg-slate-900 border-b border-slate-800 shrink-0 px-4 md:px-6 flex items-center justify-between z-20">
+        <!-- Brand / Logo -->
+        <div class="flex items-center space-x-3">
+            <button id="toggleSidebarMobile" class="md:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
+            <div class="flex items-center space-x-2 cursor-pointer">
+                <div class="bg-gradient-to-tr from-brand-600 to-emerald-400 p-2 rounded-xl text-white shadow-lg shadow-brand-500/20">
+                    <i data-lucide="tv-2" class="w-5 h-5"></i>
+                </div>
+                <span class="font-bold text-xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                    Stream<span class="text-brand-500">Sport</span>
+                </span>
+            </div>
+            <span class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                Servidor Seguro
+            </span>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="hidden md:flex flex-1 max-w-md mx-8 relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="searchInput" placeholder="Buscar equipo, liga o torneo..." 
+                   class="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-full text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition-all">
+        </div>
+
+        <!-- User Controls -->
+        <div class="flex items-center space-x-3">
+            <button id="toggleChat" class="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg relative">
+                <i data-lucide="message-square" class="w-5 h-5"></i>
+                <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-500 rounded-full"></span>
+            </button>
+            <div class="flex items-center space-x-3 pl-3 border-l border-slate-800">
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
+                     alt="Avatar" class="w-8 h-8 rounded-full ring-2 ring-brand-500/30 object-cover">
+                <span class="hidden md:inline-block text-sm font-medium text-slate-300">Usuario Premium</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Left Sidebar: Categories & Match List -->
+        <aside id="sidebar" class="w-80 md:w-80 lg:w-96 bg-slate-900/95 border-r border-slate-800 flex flex-col shrink-0 transition-all duration-300 z-10 absolute md:relative inset-y-0 left-0 -translate-x-full md:translate-x-0">
+            <!-- Sports Filter Bar -->
+            <div class="p-4 border-b border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Deportes</h2>
+                    <span id="activeMatchesCount" class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-mono">4 En Vivo</span>
+                </div>
+                <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar" id="sportFilters">
+                    <button data-sport="all" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white whitespace-nowrap transition-colors">
+                        Todos
+                    </button>
+                    <button data-sport="futbol" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap transition-colors flex items-center gap-1.5">
+                        <i data-lucide="trophy" class="w-3.5 h-3.5"></i> Fútbol
+                    </button>
+                    <button data-sport="baloncesto" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap transition-colors flex items-center gap-1.5">
+                        <i data-lucide="dribble" class="w-3.5 h-3.5"></i> Básquet
+                    </button>
+                    <button data-sport="tenis" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap transition-colors flex items-center gap-1.5">
+                        <i data-lucide="circle-dot" class="w-3.5 h-3.5"></i> Tenis
+                    </button>
+                </div>
+            </div>
+
+            <!-- Matches List Scrollable -->
+            <div class="flex-1 overflow-y-auto p-3 space-y-2" id="matchesList">
+                <!-- Dynamic Content Generated by JS -->
+            </div>
+        </aside>
+
+        <!-- Center Column: Video Player & Event Info -->
+        <main class="flex-1 flex flex-col overflow-y-auto bg-slate-950 relative">
+            <div class="p-4 lg:p-6 space-y-6 max-w-6xl mx-auto w-full">
+                
+                <!-- Player Container -->
+                <div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800 group">
+                    <!-- Canvas Graphic Animation for Simulated Game -->
+                    <div class="relative player-aspect w-full bg-slate-900 flex items-center justify-center overflow-hidden">
+                        <canvas id="canvasPlayer" class="w-full h-full object-cover"></canvas>
+                        
+                        <!-- Offline / Paused Overlay state -->
+                        <div id="playerOverlay" class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center gap-4 transition-opacity duration-300">
+                            <button id="overlayPlayBtn" class="w-20 h-20 rounded-full bg-brand-600 hover:bg-brand-500 text-white flex items-center justify-center shadow-2xl shadow-brand-500/50 hover:scale-105 transition-all">
+                                <i data-lucide="play" class="w-10 h-10 fill-current ml-1"></i>
+                            </button>
+                            <div class="text-center">
+                                <h3 id="overlayTitle" class="text-lg font-bold text-white">Haz clic para iniciar la señal</h3>
+                                <p class="text-xs text-slate-400">Servidor seguro HTML5 • Sin publicidad de terceros</p>
+                            </div>
+                        </div>
+
+                        <!-- Top Live Indicator inside Player -->
+                        <div class="absolute top-4 left-4 flex items-center gap-2 pointer-events-none">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-live text-white shadow-lg animate-pulse">
+                                <span class="w-2 h-2 rounded-full bg-white"></span>
+                                EN VIVO
+                            </span>
+                            <span id="playerViewerCount" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-black/60 backdrop-blur-md text-slate-200 border border-white/10">
+                                <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                                14,280 espectadores
+                            </span>
+                        </div>
+
+                        <!-- Player Custom Control Bar -->
+                        <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col gap-2">
+                            <!-- Progress/Seek bar -->
+                            <div class="w-full bg-slate-700/50 h-1.5 rounded-full cursor-pointer relative overflow-hidden group/bar" id="progressBar">
+                                <div id="progressFill" class="bg-brand-500 h-full w-full relative">
+                                    <div class="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover/bar:opacity-100"></div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between text-white pt-1">
+                                <div class="flex items-center space-x-4">
+                                    <button id="playBtn" class="hover:text-brand-400 transition-colors">
+                                        <i data-lucide="pause" id="playIcon" class="w-5 h-5"></i>
+                                    </button>
+                                    <div class="flex items-center space-x-2 group/vol">
+                                        <button id="muteBtn" class="hover:text-brand-400 transition-colors">
+                                            <i data-lucide="volume-2" id="volumeIcon" class="w-5 h-5"></i>
+                                        </button>
+                                        <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1" 
+                                               class="w-16 accent-brand-500 h-1 rounded-lg cursor-pointer">
+                                    </div>
+                                    <span class="text-xs font-mono text-slate-300">EN VIVO <span class="text-slate-500">|</span> 1080p</span>
+                                </div>
+
+                                <div class="flex items-center space-x-3">
+                                    <!-- Signal Quality Picker -->
+                                    <select id="qualitySelect" class="bg-black/60 border border-white/20 text-xs rounded-lg px-2 py-1 text-white focus:outline-none focus:border-brand-500">
+                                        <option value="1080">1080p HD (Original)</option>
+                                        <option value="720">720p HD</option>
+                                        <option value="480">480p SD</option>
+                                    </select>
+                                    <button id="fullscreenBtn" class="hover:text-brand-400 transition-colors">
+                                        <i data-lucide="maximize" class="w-5 h-5"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Details Panel -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                        <div>
+                            <div class="flex items-center gap-2 text-xs font-medium text-brand-400 mb-1" id="currentLeague">
+                                <i data-lucide="trophy" class="w-3.5 h-3.5"></i> UEFA Champions League • Jornada 5
+                            </div>
+                            <h1 class="text-xl md:text-2xl font-bold text-white tracking-tight" id="currentMatchTitle">
+                                Real Madrid vs. Manchester City
+                            </h1>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button id="btnLike" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-sm font-medium text-slate-200 transition-colors">
+                                <i data-lucide="heart" class="w-4 h-4 text-rose-500"></i>
+                                <span id="likeCount">12.4k</span>
+                            </button>
+                            <button id="btnShare" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-sm font-medium text-white transition-colors shadow-lg shadow-brand-600/20">
+                                <i data-lucide="share-2" class="w-4 h-4"></i>
+                                Compartir
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Match Real-Time Score Dashboard -->
+                    <div class="grid grid-cols-3 items-center bg-slate-950 border border-slate-800/80 rounded-xl p-4 text-center">
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center font-bold text-lg border border-slate-700 text-white" id="homeLogo">RMA</div>
+                            <span class="font-semibold text-sm text-slate-200" id="homeName">Real Madrid</span>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <div class="text-2xl md:text-3xl font-black text-white font-mono tracking-wider" id="scoreBoard">2 - 1</div>
+                            <span class="text-xs font-semibold text-emerald-400 mt-1 bg-emerald-500/10 px-2 py-0.5 rounded-full" id="matchTime">Minuto 68'</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-2">
+                            <div class="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center font-bold text-lg border border-slate-700 text-white" id="awayLogo">MCI</div>
+                            <span class="font-semibold text-sm text-slate-200" id="awayName">Manchester City</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Right Sidebar: Interactive Live Chat -->
+        <aside id="chatSidebar" class="w-80 lg:w-80 bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 transition-all duration-300 absolute lg:relative inset-y-0 right-0 translate-x-full lg:translate-x-0 z-10">
+            <!-- Chat Header -->
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="message-square" class="w-4 h-4 text-brand-400"></i>
+                    <h3 class="font-bold text-sm text-white">Chat en Vivo</h3>
+                </div>
+                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            </div>
+
+            <!-- Messages Stream Area -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-3" id="chatMessages">
+                <!-- Dynamic Chat Content -->
+            </div>
+
+            <!-- Chat Input Form -->
+            <div class="p-3 border-t border-slate-800 bg-slate-950">
+                <form id="chatForm" class="flex gap-2">
+                    <input type="text" id="chatInput" placeholder="Envía un comentario..." 
+                           class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 transition-colors">
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-500 text-white px-3 py-2 rounded-xl text-xs font-medium transition-colors flex items-center justify-center">
+                        <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 border border-brand-500/40 text-slate-100 px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-20 opacity-0 flex items-center space-x-3 z-50">
+        <i data-lucide="info" class="w-5 h-5 text-brand-400"></i>
+        <span id="toastMsg" class="text-xs font-medium">Enlace copiado al portapapeles</span>
+    </div>
+
+    <script>
+        // --- MATCH DATA STRUCTURE ---
+        const matchesData = [
+            {
+                id: 1,
+                sport: 'futbol',
+                league: 'UEFA Champions League',
+                homeTeam: 'Real Madrid',
+                awayTeam: 'Manchester City',
+                homeShort: 'RMA',
+                awayShort: 'MCI',
+                score: '2 - 1',
+                time: "Minuto 68'",
+                status: 'live',
+                viewers: '14,280',
+                color1: '#7c3aed',
+                color2: '#0284c7'
+            },
+            {
+                id: 2,
+                sport: 'baloncesto',
+                league: 'NBA • Temporada Regular',
+                homeTeam: 'LA Lakers',
+                awayTeam: 'Golden State',
+                homeShort: 'LAL',
+                awayShort: 'GSW',
+                score: '104 - 98',
+                time: '4º Cuarto 3:45',
+                status: 'live',
+                viewers: '9,850',
+                color1: '#f59e0b',
+                color2: '#3b82f6'
+            },
+            {
+                id: 3,
+                sport: 'futbol',
+                league: 'LaLiga EA Sports',
+                homeTeam: 'FC Barcelona',
+                awayTeam: 'Atlético de Madrid',
+                homeShort: 'FCB',
+                awayShort: 'ATM',
+                score: '0 - 0',
+                time: 'Hoy 21:00',
+                status: 'upcoming',
+                viewers: 'Próximamente',
+                color1: '#b91c1c',
+                color2: '#1d4ed8'
+            },
+            {
+                id: 4,
+                sport: 'tenis',
+                league: 'Roland Garros • Semifinal',
+                homeTeam: 'C. Alcaraz',
+                awayTeam: 'J. Sinner',
+                homeShort: 'ALC',
+                awayShort: 'SIN',
+                score: '6-4, 3-6, 4-2',
+                time: '3er Set',
+                status: 'live',
+                viewers: '6,120',
+                color1: '#15803d',
+                color2: '#ea580c'
+            },
+            {
+                id: 5,
+                sport: 'futbol',
+                league: 'Premier League',
+                homeTeam: 'Arsenal',
+                awayTeam: 'Liverpool',
+                homeShort: 'ARS',
+                awayShort: 'LIV',
+                score: '1 - 1',
+                time: 'Minuto 32\'',
+                status: 'live',
+                viewers: '11,400',
+                color1: '#dc2626',
+                color2: '#991b1b'
+            }
+        ];
+
+        // --- GLOBAL APP STATE ---
+        let currentMatch = matchesData[0];
+        let isPlaying = true;
+        let animationFrameId;
+
+        // --- RENDER MATCHES LIST ---
+        function renderMatches(filter = 'all', searchQuery = '') {
+            const container = document.getElementById('matchesList');
+            container.innerHTML = '';
+
+            const filtered = matchesData.filter(m => {
+                const matchesSport = filter === 'all' || m.sport === filter;
+                const matchesSearch = m.homeTeam.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      m.awayTeam.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                      m.league.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesSport && matchesSearch;
+            });
+
+            filtered.forEach(m => {
+                const isSelected = m.id === currentMatch.id;
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl cursor-pointer border transition-all ${
+                    isSelected 
+                        ? 'bg-brand-600/10 border-brand-500/50 shadow-md' 
+                        : 'bg-slate-950/60 border-slate-800/80 hover:border-slate-700 hover:bg-slate-800/40'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-[10px] font-semibold text-slate-400 truncate max-w-[170px]">${m.league}</span>
+                        ${m.status === 'live' 
+                            ? `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-live bg-live/10 px-2 py-0.5 rounded-full">
+                                 <span class="w-1.5 h-1.5 rounded-full bg-live animate-pulse"></span> VIVO
+                               </span>`
+                            : `<span class="text-[10px] font-medium text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">Próximo</span>`
+                        }
+                    </div>
+                    <div class="flex items-center justify-between font-semibold text-sm text-slate-200">
+                        <div class="flex items-center space-x-2">
+                            <span>${m.homeTeam}</span>
+                        </div>
+                        <span class="font-mono text-brand-400 text-xs">${m.score}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-slate-400 mt-1">
+                        <span>${m.awayTeam}</span>
+                        <span class="text-[10px]">${m.time}</span>
+                    </div>
+                `;
+
+                card.onclick = () => selectMatch(m);
+                container.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        // --- SELECT MATCH EVENT ---
+        function selectMatch(match) {
+            currentMatch = match;
+            document.getElementById('currentMatchTitle').textContent = `${match.homeTeam} vs. ${match.awayTeam}`;
+            document.getElementById('currentLeague').innerHTML = `<i data-lucide="trophy" class="w-3.5 h-3.5"></i> ${match.league}`;
+            document.getElementById('homeName').textContent = match.homeTeam;
+            document.getElementById('awayName').textContent = match.awayTeam;
+            document.getElementById('homeLogo').textContent = match.homeShort;
+            document.getElementById('awayLogo').textContent = match.awayShort;
+            document.getElementById('scoreBoard').textContent = match.score;
+            document.getElementById('matchTime').textContent = match.time;
+            document.getElementById('playerViewerCount').innerHTML = `<i data-lucide="users" class="w-3.5 h-3.5"></i> ${match.viewers} espectadores`;
+
+            renderMatches(document.querySelector('.filter-btn.bg-brand-600').dataset.sport, document.getElementById('searchInput').value);
+            lucide.createIcons();
+            
+            showToast(`Cambiando señal a: ${match.homeTeam} vs ${match.awayTeam}`);
+        }
+
+        // --- SIMULATED CANVAS VIDEO ANIMATION ---
+        const canvas = document.getElementById('canvasPlayer');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let ballX = 100, ballY = 100, ballVX = 4, ballVY = 3;
+
+        function animateCanvas() {
+            if (!isPlaying) return;
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw field lines (simulated court/pitch)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.lineWidth = 2;
+            
+            // Center Line
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+
+            // Center Circle
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, 60, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Simulated Dynamic Ball
+            ballX += ballVX;
+            ballY += ballVY;
+
+            if (ballX < 20 || ballX > canvas.width - 20) ballVX *= -1;
+            if (ballY < 20 || ballY > canvas.height - 20) ballVY *= -1;
+
+            // Ball glow
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = currentMatch.color1;
+            
+            ctx.beginPath();
+            ctx.arc(ballX, ballY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            // Reset glow
+            ctx.shadowBlur = 0;
+
+            // Display simulated graphic text
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.font = 'bold 24px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText("TRANSMISIÓN EN VIVO HD - SIMULADOR", canvas.width / 2, canvas.height / 2 - 80);
+
+            animationFrameId = requestAnimationFrame(animateCanvas);
+        }
+
+        // --- PLAYER CONTROLS LOGIC ---
+        const overlay = document.getElementById('playerOverlay');
+        const playBtn = document.getElementById('playBtn');
+        const playIcon = document.getElementById('playIcon');
+        const overlayPlayBtn = document.getElementById('overlayPlayBtn');
+
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+                playIcon.setAttribute('data-lucide', 'pause');
+                animateCanvas();
+            } else {
+                overlay.classList.remove('opacity-0', 'pointer-events-none');
+                playIcon.setAttribute('data-lucide', 'play');
+                cancelAnimationFrame(animationFrameId);
+            }
+            lucide.createIcons();
+        }
+
+        playBtn.addEventListener('click', togglePlay);
+        overlayPlayBtn.addEventListener('click', togglePlay);
+
+        // Mute / Volume Logic
+        const muteBtn = document.getElementById('muteBtn');
+        const volumeIcon = document.getElementById('volumeIcon');
+        const volumeSlider = document.getElementById('volumeSlider');
+
+        muteBtn.addEventListener('click', () => {
+            if (volumeSlider.value > 0) {
+                volumeSlider.value = 0;
+                volumeIcon.setAttribute('data-lucide', 'volume-x');
+            } else {
+                volumeSlider.value = 1;
+                volumeIcon.setAttribute('data-lucide', 'volume-2');
+            }
+            lucide.createIcons();
+        });
+
+        // Fullscreen Toggle
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            const playerContainer = canvas.parentElement;
+            if (!document.fullscreenElement) {
+                playerContainer.requestFullscreen().catch(err => alert("Error al activar pantalla completa"));
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        // --- SIMULATED CHAT ENGINE ---
+        const sampleUsers = ['Carlos_99', 'FanaticoGol', 'SocioReal', 'Lucas_ARG', 'UltraSport', 'Elena_Madrid'];
+        const sampleMessages = [
+            '¡Qué golazo impresionante!',
+            '¿Alguien más sintió ese roce en el área?',
+            'Excelente calidad de transmisión hoy 👏',
+            '¡Vamos con todo en la segunda mitad!',
+            'Definitivamente el mejor partido del mes.'
+        ];
+
+        function addChatMessage(user, text, isSelf = false) {
+            const container = document.getElementById('chatMessages');
+            const msgEl = document.createElement('div');
+            msgEl.className = `flex flex-col space-y-1 ${isSelf ? 'items-end' : 'items-start'}`;
+
+            msgEl.innerHTML = `
+                <div class="flex items-center space-x-1 text-[11px] text-slate-400">
+                    <span class="font-bold ${isSelf ? 'text-brand-400' : 'text-slate-300'}">${user}</span>
+                    <span>•</span>
+                    <span>Justo ahora</span>
+                </div>
+                <div class="px-3 py-1.5 rounded-2xl text-xs max-w-[85%] ${
+                    isSelf 
+                        ? 'bg-brand-600 text-white rounded-tr-none' 
+                        : 'bg-slate-800 text-slate-200 rounded-tl-none border border-slate-700/50'
+                }">
+                    ${text}
+                </div>
+            `;
+
+            container.appendChild(msgEl);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Auto-generate random chat messages
+        setInterval(() => {
+            if (isPlaying) {
+                const randomUser = sampleUsers[Math.floor(Math.random() * sampleUsers.length)];
+                const randomMsg = sampleMessages[Math.floor(Math.random() * sampleMessages.length)];
+                addChatMessage(randomUser, randomMsg);
+            }
+        }, 5000);
+
+        // Handle User Chat Form Submit
+        document.getElementById('chatForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chatInput');
+            const val = input.value.trim();
+            if (val) {
+                addChatMessage('Tú', val, true);
+                input.value = '';
+            }
+        });
+
+        // --- INTERACTION HELPER FUNCTIONS ---
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        document.getElementById('btnShare').addEventListener('click', () => {
+            showToast('¡Enlace del evento copiado al portapapeles!');
+        });
+
+        let likes = 12400;
+        document.getElementById('btnLike').addEventListener('click', () => {
+            likes++;
+            document.getElementById('likeCount').textContent = (likes / 1000).toFixed(1) + 'k';
+            showToast('¡Te ha gustado este evento!');
+        });
+
+        // --- SIDEBAR & RESPONSIVE TOGGLES ---
+        const sidebar = document.getElementById('sidebar');
+        const chatSidebar = document.getElementById('chatSidebar');
+
+        document.getElementById('toggleSidebarMobile').addEventListener('click', () => {
+            sidebar.classList.toggle('-translate-x-full');
+        });
+
+        document.getElementById('toggleChat').addEventListener('click', () => {
+            chatSidebar.classList.toggle('translate-x-full');
+        });
+
+        // Sport Filter Click Handling
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => {
+                    b.classList.remove('bg-brand-600', 'text-white');
+                    b.classList.add('bg-slate-800', 'text-slate-400');
+                });
+                btn.classList.remove('bg-slate-800', 'text-slate-400');
+                btn.classList.add('bg-brand-600', 'text-white');
+
+                renderMatches(btn.dataset.sport, document.getElementById('searchInput').value);
+            });
+        });
+
+        // Search Input Handling
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const activeSport = document.querySelector('.filter-btn.bg-brand-600').dataset.sport;
+            renderMatches(activeSport, e.target.value);
+        });
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            lucide.createIcons();
+            renderMatches();
+            animateCanvas();
+            // Initial seed messages
+            addChatMessage('Moderador', '¡Bienvenidos a la retransmisión oficial HD!');
+            addChatMessage('Gonzalo_P', 'Se ve genial la imagen en 1080p.');
+        };
+    </script>
+</body>
+</html>
